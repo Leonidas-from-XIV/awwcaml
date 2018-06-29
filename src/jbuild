@@ -1,0 +1,5 @@
+(library
+ ((name awwcaml)
+  (public_name awwcaml)
+  (preprocess (pps (bitstring.ppx)))
+  (libraries (cohttp-async bitstring))))
