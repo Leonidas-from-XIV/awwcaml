@@ -1,11 +1,11 @@
-module Types = struct
-  let bool = 1
-  let int = 2
-  let unit = 3
-  let float = 4
-  let byte_slice = 5
-  let string = 6
-  (* this is as far as we care to implement *)
+module Gob = struct
+  type t =
+    | Bool of bool
+    | Uint of Int64.t
+    | Int of Int64.t
+    | Float of float
+    | Byteslice of bytes
+    | String of string
 end
 
 let decode_uint
@@ -43,4 +43,52 @@ let decode_byte_slice
   match%bitstring bits with
   | {| byte_slice : length * 8 : string;
        rest : -1 : bitstring |} ->
-    Bytes.of_string byte_slice, rest
+    (Bytes.of_string byte_slice, rest)
+
+let decode_string bits =
+  let slice, rest = decode_byte_slice bits in
+  (Bytes.to_string slice, rest)
+
+let read_segment
+  : Bitstring.bitstring -> (Bitstring.bitstring * Bitstring.bitstring)
+  = fun bits ->
+  let length, buf = decode_uint bits in
+  let length = Int64.to_int length in
+  match%bitstring buf with
+  | {| segment : length * 8 : bitstring;
+       rest : -1 : bitstring |} -> (segment, rest)
+
+let decode_value
+  : int -> Bitstring.bitstring -> (Gob.t * Bitstring.bitstring)
+  = fun type_id bits ->
+  match type_id with
+  | 1 ->
+    let v, rest = decode_bool bits in
+    (Gob.Bool v, rest)
+  | 2 -> 
+    let v, rest = decode_int bits in
+    (Gob.Int v, rest)
+  | 3 -> 
+    let v, rest = decode_uint bits in
+    (Gob.Uint v, rest)
+  | 4 -> 
+    failwith "Decoding floats unsupported"
+  | 5 -> 
+    let v, rest = decode_byte_slice bits in
+    (Gob.Byteslice v, rest)
+  | 6 -> 
+    let v, rest = decode_string bits in
+    (Gob.String v, rest)
+  | _ -> failwith "Not implemented"
+
+let load
+  : string -> Gob.t
+  = fun str ->
+  let bits = Bitstring.bitstring_of_string str in
+  let segment, _rest = read_segment bits in
+  let type_id, segment = decode_int segment in
+  let type_id = Int64.to_int type_id in
+  let value, _rest = decode_value type_id segment in
+
+  value
+
