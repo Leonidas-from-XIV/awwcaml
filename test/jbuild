@@ -1,0 +1,8 @@
+(executable
+ ((name unittest)
+  (libraries (alcotest))))
+
+(alias
+ ((name    runtest)
+  (deps    (unittest.exe))
+  (action  (run ${<}))))
